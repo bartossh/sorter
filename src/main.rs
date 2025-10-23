@@ -6,7 +6,7 @@ use std::{
     io::{BufRead, BufReader, Write},
 };
 
-const TEMP_FILE_PREFIX: &str = "./sort_temp_file_";
+const TEMP_FILE_PREFIX: &str = "sort_temp_file_";
 
 /// Sort a file that is bigger than RAM
 #[derive(Parser, Debug)]
@@ -26,9 +26,18 @@ struct Sorter {
 }
 
 impl Sorter {
-    fn sort_and_write_to_file(&self, batch_sorted: &mut [u64], next_num: u64) -> Result<()> {
+    fn get_temp_file_path(&self, file_num: u64) -> String {
+        if let Some(parent) = std::path::Path::new(&self.output).parent() {
+            format!("{}/{}{}.txt", parent.display(), TEMP_FILE_PREFIX, file_num)
+        } else {
+            format!("{}{}.txt", TEMP_FILE_PREFIX, file_num)
+        }
+    }
+
+    fn sort_and_write_to_file(&self, batch_sorted: &mut [u64], file_num: u64) -> Result<()> {
         batch_sorted.sort_unstable();
-        let mut file = std::fs::File::create(format!("{}{}.txt", TEMP_FILE_PREFIX, next_num))?;
+        let temp_file_path = self.get_temp_file_path(file_num);
+        let mut file = std::fs::File::create(&temp_file_path)?;
         for num in batch_sorted {
             writeln!(file, "{}", num)?;
         }
@@ -37,12 +46,15 @@ impl Sorter {
     }
 
     fn merge_files(&self, files_num: u64) -> Result<()> {
+        if files_num == 0 {
+            std::fs::File::create(&self.output)?;
+            return Ok(());
+        }
+
         let mut readers = (0..files_num)
-            .map(|next_num| {
-                BufReader::new(
-                    std::fs::File::open(format!("{}{}.txt", TEMP_FILE_PREFIX, next_num)).unwrap(),
-                )
-                .lines()
+            .map(|file_num| {
+                let temp_file_path = self.get_temp_file_path(file_num);
+                BufReader::new(std::fs::File::open(&temp_file_path).unwrap()).lines()
             })
             .collect::<Vec<_>>();
 
@@ -66,8 +78,9 @@ impl Sorter {
             }
         }
 
-        for file_num in (0..files_num).rev() {
-            std::fs::remove_file(format!("{}{}.txt", TEMP_FILE_PREFIX, file_num))?;
+        for file_num in 0..files_num {
+            let temp_file_path = self.get_temp_file_path(file_num);
+            std::fs::remove_file(&temp_file_path)?;
         }
 
         Ok(())
@@ -82,6 +95,7 @@ fn main() -> Result<()> {
     let reader = BufReader::new(file);
     let mut batch_sorted = Vec::with_capacity(sorter.batch);
     let mut file_counter = 0;
+
     for line_result in reader.lines() {
         let line = line_result?;
 
@@ -94,8 +108,10 @@ fn main() -> Result<()> {
             batch_sorted.clear();
         }
     }
-    if batch_sorted.len() >= sorter.batch {
+
+    if !batch_sorted.is_empty() {
         sorter.sort_and_write_to_file(&mut batch_sorted, file_counter)?;
+        file_counter += 1;
     }
 
     sorter.merge_files(file_counter)?;

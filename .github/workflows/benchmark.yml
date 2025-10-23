@@ -1,0 +1,147 @@
+name: Benchmarks
+
+on:
+    push:
+        branches: [main, master]
+    pull_request:
+        branches: [main, master]
+    workflow_dispatch:
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+    benchmark:
+        name: Performance Benchmarks
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout sources
+              uses: actions/checkout@v4
+
+            - name: Install stable toolchain
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Cache cargo registry
+              uses: actions/cache@v4
+              with:
+                  path: ~/.cargo/registry
+                  key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+            - name: Cache cargo index
+              uses: actions/cache@v4
+              with:
+                  path: ~/.cargo/git
+                  key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+            - name: Cache cargo build
+              uses: actions/cache@v4
+              with:
+                  path: target
+                  key: ${{ runner.os }}-cargo-build-target-bench-${{ hashFiles('**/Cargo.lock') }}
+
+            - name: Install cargo-criterion
+              uses: actions-rs/cargo@v1
+              with:
+                  command: install
+                  args: cargo-criterion
+
+            - name: Generate test data
+              run: |
+                  mkdir -p bench_data
+                  # Generate small test file (1MB)
+                  seq 1 100000 | sort -R > bench_data/small.txt
+                  # Generate medium test file (10MB)
+                  seq 1 1000000 | sort -R > bench_data/medium.txt
+
+            - name: Run benchmarks
+              uses: actions-rs/cargo@v1
+              with:
+                  command: bench
+                  args: --bench '*'
+
+            - name: Upload benchmark results
+              uses: actions/upload-artifact@v4
+              with:
+                  name: benchmark-results
+                  path: target/criterion
+
+            - name: Comment on PR with benchmark results
+              if: github.event_name == 'pull_request'
+              uses: actions/github-script@v7
+              with:
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+                  script: |
+                      const fs = require('fs');
+                      const path = require('path');
+
+                      // Read benchmark results
+                      const criterionPath = 'target/criterion';
+                      let comment = '## Benchmark Results\n\n';
+
+                      try {
+                        // Add benchmark summary
+                        comment += 'Benchmarks have been run. Results are available in the artifacts.\n';
+                        comment += '\n### Test Environment\n';
+                        comment += '- OS: Ubuntu Latest\n';
+                        comment += '- Rust: Stable\n';
+
+                        // Comment on the PR
+                        github.rest.issues.createComment({
+                          issue_number: context.issue.number,
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          body: comment
+                        });
+                      } catch (error) {
+                        console.error('Error reading benchmark results:', error);
+                      }
+
+    benchmark-compare:
+        name: Compare Benchmarks
+        runs-on: ubuntu-latest
+        if: github.event_name == 'pull_request'
+        steps:
+            - name: Checkout PR branch
+              uses: actions/checkout@v4
+
+            - name: Checkout main branch
+              uses: actions/checkout@v4
+              with:
+                  ref: main
+                  path: main
+
+            - name: Install stable toolchain
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Install critcmp
+              uses: actions-rs/cargo@v1
+              with:
+                  command: install
+                  args: critcmp
+
+            - name: Generate test data
+              run: |
+                  mkdir -p bench_data
+                  seq 1 100000 | sort -R > bench_data/small.txt
+
+            - name: Run benchmarks on main
+              working-directory: main
+              run: |
+                  mkdir -p ../bench_data
+                  cp ../bench_data/small.txt ../bench_data/
+                  cargo bench --bench '*' -- --save-baseline main
+
+            - name: Run benchmarks on PR branch
+              run: |
+                  cargo bench --bench '*' -- --save-baseline pr
+
+            - name: Compare benchmarks
+              run: |
+                  critcmp main pr > benchmark_comparison.txt
+                  cat benchmark_comparison.txt
+
+            - name: Upload comparison results
+              uses: actions/upload-artifact@v4
+              with:
+                  name: benchmark-comparison
+                  path: benchmark_comparison.txt

@@ -1,8 +1,17 @@
 [package]
 name = "sort_bigger_then_ram"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
 anyhow = "1.0.100"
 clap = { version = "4.5.50", features = ["derive"] }
+
+[dev-dependencies]
+criterion = { version = "0.7", features = ["html_reports"] }
+rand = "0.9"
+serial_test = "3.2"
+
+[[bench]]
+name = "sort_benchmark"
+harness = false
