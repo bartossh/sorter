@@ -1,9 +1,7 @@
 # External Merge Sort for Large Files
 
 [![Rust CI](https://github.com/bartossh/sorter/workflows/Rust%20CI/badge.svg)](https://github.com/bartossh/sorter/actions/workflows/rust.yml)
-[![Release](https://github.com/bartossh/sorter/workflows/Release/badge.svg)](https://github.com/bartossh/sorter/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Crates.io](https://img.shields.io/crates/v/sort_bigger_then_ram.svg)](https://crates.io/crates/sort_bigger_then_ram)
 [![Documentation](https://docs.rs/sort_bigger_then_ram/badge.svg)](https://docs.rs/sort_bigger_then_ram)
 
 A high-performance Rust implementation of external merge sort designed to efficiently sort files that are larger than available RAM. This tool uses a divide-and-conquer approach to sort massive datasets by breaking them into manageable chunks, sorting each chunk in memory, and then merging the sorted chunks. The implementation is optimized for sorting large files containing unsigned 64-bit integers.
