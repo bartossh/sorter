@@ -63,7 +63,7 @@ sort_bigger_then_ram --input <INPUT_FILE> --output <OUTPUT_FILE> [--batch <BATCH
 
 - `-i, --input <INPUT>`: Path to the input file containing numbers (one per line)
 - `-o, --output <OUTPUT>`: Path where the sorted output will be written
-- `-b, --batch <BATCH>`: Number of elements to process in each batch (default: 1024). Each element uses 8 bytes of RAM
+- `-b, --batch <BATCH>`: Size of RAM in bytes to use in each batch (default: 1024). 
 - `-h, --help`: Display help information
 - `-V, --version`: Display version information
 
